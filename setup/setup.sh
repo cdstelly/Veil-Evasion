@@ -668,8 +668,26 @@ func_update_config(){
   chown -R "${trueuser}":"${userprimarygroup}" "${winedir}"
 }
 
-########################################################################
+# Helper - determine if given command exists on a system
+func_command_exists() {
+  [ -x $(hash $1 2>/dev/null) ]
+}
 
+#Get OS via package manager
+func_get_os_by_package_manager() {
+  if func_command_exists pacman; then
+    os="arch"
+  elif func_command_exists apt-get; then
+    # deal with ubuntu vs non ubuntu
+    os="$(awk -F '=' '/^ID=/ {print $2}' /etc/os-release 2>&-)"
+  elif func_command_exists dnf; then
+    os="rhel"
+  else
+    os="not found"
+  fi
+}
+
+########################################################################
 
 # Print banner
 func_title
@@ -679,6 +697,10 @@ if [ "${arch}" != "x86" ] && [ "${arch}" != "i686" ] && [ "${arch}" != "x86_64" 
   echo -e " ${RED}[ERROR] Your architecture ${arch} is not supported!${RESET}\n\n"
   exit 1
 fi
+
+# Find OS based on package manager (in case distribution overwrites /etc/os-issue)
+func_get_os_by_package_manager
+echo ${os}
 
 # Check OS
 if [ "${os}" == "kali" ]; then
@@ -705,7 +727,7 @@ elif [ "${os}" == "fedora" ]; then
     exit 1
   fi
 else
-  os="$(awk -F '["=]' '/^ID=/ {print $2}' /etc/os-release 2>&- | cut -d'.' -f1)"
+  func_get_os_by_package_manager
   if [ "${os}" == "arch" ]; then
     echo -e " [I] ${YELLOW}Arch Linux ${arch} detected...${RESET}\n"
   elif [ "${os}" == "debian" ]; then
